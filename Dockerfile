@@ -1,5 +1,5 @@
 # squero-julia-kernel — the Julia session Squero Studio MX talks to.
-FROM julia:1.11.6-bookworm
+FROM docker.io/library/julia:1.11.6-bookworm
 
 RUN useradd -m -u 1000 kernel
 WORKDIR /app
