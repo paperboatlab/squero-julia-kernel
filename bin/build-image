@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# Build the pinned kernel image with whatever container runtime is present.
+set -eu
+IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r1}"
+if command -v podman >/dev/null 2>&1; then
+  exec podman build -t "$IMAGE" .
+elif command -v docker >/dev/null 2>&1; then
+  exec docker build -t "$IMAGE" .
+else
+  echo "build-image: install podman or docker" >&2
+  exit 2
+fi
