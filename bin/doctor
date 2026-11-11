@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+# squero-mx doctor: what starts the kernel, and whether it answers.
+set -eu
+IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r1}"
+NATIVE="$(command -v julia || true)"
+PODMAN="$(command -v podman || true)"
+DOCKER="$(command -v docker || true)"
+RUNTIME="${SQUERO_JULIA:-}"
+
+if [ -z "$RUNTIME" ]; then
+  if [ -n "$PODMAN" ]; then RUNTIME=podman
+  elif [ -n "$DOCKER" ]; then RUNTIME=docker
+  elif [ -n "$NATIVE" ]; then RUNTIME=native
+  fi
+fi
+
+echo "squero-julia-kernel"
+echo "  runtime: ${RUNTIME:-none}"
+[ -n "$NATIVE" ] && echo "  native:  $($NATIVE --version)"
+if [ "$RUNTIME" = "podman" ] || [ "$RUNTIME" = "docker" ]; then
+  command -v "$RUNTIME" >/dev/null 2>&1 || { echo "  $RUNTIME: not found"; exit 2; }
+  "$RUNTIME" image inspect "$IMAGE" >/dev/null 2>&1 || { echo "  image:   $IMAGE (missing)"; exit 2; }
+  echo "  image:   $IMAGE"
+  printf '%s\n' '{"op":"hello"}' | "$RUNTIME" run --rm -i --network=none "$IMAGE" | sed 's/^/  hello:   /'
+elif [ "$RUNTIME" = "native" ]; then
+  [ -n "$NATIVE" ] || { echo "  native julia: not found"; exit 2; }
+  echo "  image:   native (no container)"
+  printf '%s\n' '{"op":"hello"}' | "$NATIVE" --startup-file=no --project="$(dirname "$0")/.." "$(dirname "$0")/../src/kernel.jl" | sed 's/^/  hello:   /'
+else
+  echo "  install Julia, podman or docker" >&2
+  exit 2
+fi
