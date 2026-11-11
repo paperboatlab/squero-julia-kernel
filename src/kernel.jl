@@ -13,11 +13,35 @@ const PROTOCOL = 0
 const PACKAGES = ["JSON3", "LinearAlgebra", "SparseArrays", "Statistics"]
 const IMAGE = get(ENV, "SQUERO_KERNEL_IMAGE", "squero-julia-kernel:$(VERSION)-r1")
 
+# SqueroBase owns the verbs' specifications. The kernel only evaluates and forwards them, so a
+# chart never has a second definition here; SQUERO_BASE points at the checkout (the image or
+# the launcher mounts it), and without it the session is plain Julia.
+const SQUERO_BASE = let
+    given = get(ENV, "SQUERO_BASE", "")
+    if !isempty(given)
+        given
+    else
+        candidate = normpath(joinpath(@__DIR__, "..", "..", "squero-mx-base"))
+        isdir(candidate) ? candidate : ""
+    end
+end
+const HAS_BASE = !isempty(SQUERO_BASE) && isfile(joinpath(SQUERO_BASE, "src", "SqueroBase.jl"))
+HAS_BASE && include(joinpath(SQUERO_BASE, "src", "SqueroBase.jl"))
+
 """A fresh module is the session: `reset` and `clear` get a new one, as a new REPL would."""
 function fresh_module()
     mod = Module(gensym(:SqueroSession))
     Core.eval(mod, :(using LinearAlgebra, SparseArrays, Statistics))
+    HAS_BASE && Core.eval(mod, :(using Main.SqueroBase))
     mod
+end
+
+"""What the verbs recorded in this evaluation, as plain JSON: charts, problems, events."""
+function take_specs()
+    HAS_BASE || return (Any[], Any[], Any[])
+    charts = Any[JSON3.read(SqueroBase.chart_json(chart)) for chart in SqueroBase.take_charts()]
+    problems = Any[JSON3.read(SqueroBase.problem_json(problem)) for problem in SqueroBase.take_problems()]
+    (charts, problems, SqueroBase.take_events())
 end
 
 mutable struct Session
@@ -135,15 +159,19 @@ function handle(request::AbstractDict)
             "image" => IMAGE,
             "protocol" => PROTOCOL,
             "packages" => PACKAGES,
-        ))
+            "squero_base" => HAS_BASE ? SQUERO_BASE : "",
+        ); id = id)
     elseif op == "eval"
         code = string(get(request, "code", ""))
         SESSION.source = code
         result = evaluate(code)
+        charts, problems, events = take_specs()
         if result.error !== nothing
-            return reply(Dict("ok" => false, "error" => result.error, "stdout" => result.stdout); id = id)
+            return reply(Dict("ok" => false, "error" => result.error, "stdout" => result.stdout,
+                              "charts" => charts, "problems" => problems, "events" => events); id = id)
         end
-        return reply(Dict("value" => describe(result.value), "stdout" => result.stdout); id = id)
+        return reply(Dict("value" => describe(result.value), "stdout" => result.stdout,
+                          "charts" => charts, "problems" => problems, "events" => events); id = id)
     elseif op == "whos"
         return reply(Dict("value" => whois()); id = id)
     elseif op == "get"
@@ -194,13 +222,15 @@ function handle(request::AbstractDict)
             "error" => result.error,
         ); id = id)
     elseif op == "chart"
-        return reply(Dict("value" => nothing, "note" => "chart specs land with the shared plot registry"))
+        charts, problems, events = take_specs()
+        return reply(Dict("charts" => charts, "problems" => problems, "events" => events); id = id)
     elseif op == "reset"
         SESSION.mod = fresh_module()
         SESSION.source = ""
-        return reply(Dict("value" => nothing))
+        HAS_BASE && (SqueroBase.take_charts(); SqueroBase.take_problems(); SqueroBase.take_events())
+        return reply(Dict("value" => nothing); id = id)
     elseif op == "shutdown"
-        reply(Dict("value" => nothing))
+        reply(Dict("value" => nothing); id = id)
         exit(0)
     else
         return fail("unknown op \"$op\""; id = id)
