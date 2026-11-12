@@ -1,4 +1,4 @@
-"""squero-kernel/0 smoke test: hello, eval, whos, and a 512x512 binary round-trip.
+"""squero-kernel/0 smoke test: hello, eval, whos, clear(), and a 512x512 binary round-trip.
 
 Run it against the container (default) or native Julia:
 
@@ -13,8 +13,11 @@ import subprocess
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMAGE = os.environ.get("SQUERO_KERNEL_IMAGE", "squero-julia-kernel:1.11.6-r1")
 NATIVE = os.environ.get("SQUERO_KERNEL") == "native"
+# SqueroBase (clear, clc, the chart verbs) is mounted as the MX launcher mounts it.
+BASE = os.environ.get("SQUERO_BASE", os.path.join(os.path.dirname(ROOT), "squero-mx-base"))
 CMD = (["julia", "--startup-file=no", f"--project={ROOT}", os.path.join(ROOT, "src", "kernel.jl")]
-       if NATIVE else ["podman", "run", "--rm", "-i", "--network=none", IMAGE])
+       if NATIVE else ["podman", "run", "--rm", "-i", "--network=none",
+                       "-v", f"{BASE}:/opt/squero-mx-base:ro,z", "-e", "SQUERO_BASE=/opt/squero-mx-base", IMAGE])
 
 p = subprocess.Popen(CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
@@ -36,10 +39,29 @@ assert hello["ok"] and hello["protocol"] == 0 and hello["julia"].startswith("1.1
 print("hello", hello["julia"], hello["image"])
 
 send({"op": "eval", "id": "e", "code": "f(x, y) = x + y; t = f(2, 3)"})
-assert line()["value"]["value"] == 5
+evaluated = line()
+assert evaluated["value"]["value"] == 5 and evaluated["text"] == "5"
+send({"op": "eval", "id": "m", "code": "[1 2; 3 4]"})
+assert line()["text"] == "2×2 Matrix{Int64}:\n 1  2\n 3  4"
 send({"op": "whos"})
-assert [v["name"] for v in line()["value"]] == ["t"]
-print("eval/whos t = 5")
+assert [(v["name"], v["type"]) for v in line()["value"]] == [("f", "Function"), ("t", "Int64")]
+print("eval/whos f, t = 5")
+
+# clear() applies between statements: what the script defines after it survives.
+send({"op": "eval", "id": "c", "code": "x = 1:5\ny = 2:6\nclear()\nclc()\nz = 10\na = 5\nf(x, y) = x + y\nt = f(2, 3)"})
+cleared = line()
+assert cleared["ok"] and [e["type"] for e in cleared["events"]] == ["clear", "clc"], cleared
+send({"op": "whos"})
+assert [v["name"] for v in line()["value"]] == ["a", "f", "t", "z"]
+send({"op": "eval", "id": "d", "code": "w = 1; clear(:a); f(1, 1)"})
+assert line()["value"]["value"] == 2
+send({"op": "whos"})
+assert [v["name"] for v in line()["value"]] == ["f", "t", "w", "z"]
+send({"op": "eval", "id": "p", "code": "q = 1\nbad("})
+assert not line()["ok"]
+send({"op": "whos"})
+assert "q" not in [v["name"] for v in line()["value"]], "a syntax error runs nothing"
+print("clear between statements")
 
 n = 512
 values = [0.25] * (n * n)
