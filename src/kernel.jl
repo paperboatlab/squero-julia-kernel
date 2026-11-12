@@ -82,7 +82,7 @@ function describe(value)
     end
 end
 
-"""`whos`: numeric session bindings, with the handful of values the workspace cards show."""
+"""`whos`: the session's bindings and functions, with the handful of values the workspace cards show."""
 function whois()
     out = Any[]
     for name in names(SESSION.mod; all = true, imported = false)
@@ -91,7 +91,9 @@ function whois()
         text in ("Base", "Core", "LinearAlgebra", "SparseArrays", "Statistics", "Main") && continue
         isdefined(SESSION.mod, name) || continue
         value = getfield(SESSION.mod, name)
-        if value isa Function || value isa Module || value isa Type
+        (value isa Module || value isa Type) && continue
+        if value isa Function  # the user's own functions, listed as a REPL's varinfo would
+            push!(out, Dict{String, Any}("name" => text, "type" => "Function", "shape" => "—"))
             continue
         end
         item = describe(value)
@@ -108,6 +110,10 @@ function array_frame(value::AbstractArray{<:Number})
     bytes = Vector{UInt8}(reinterpret(UInt8, vec(collect(Float64, value))))
     return rows, cols, bytes
 end
+
+"""The value as the REPL prints it (`text/plain`, limited to a screen), or "" for nothing."""
+shown(value) = value === nothing ? "" :
+    sprint(io -> show(IOContext(io, :limit => true, :displaysize => (24, 80)), MIME"text/plain"(), value))
 
 function reply(payload; id = nothing)
     out = Dict{String, Any}()
@@ -214,7 +220,7 @@ function handle(request::AbstractDict)
             return reply(Dict("ok" => false, "error" => result.error, "stdout" => result.stdout,
                               "charts" => charts, "problems" => problems, "events" => events); id = id)
         end
-        return reply(Dict("value" => describe(result.value), "stdout" => result.stdout,
+        return reply(Dict("value" => describe(result.value), "text" => shown(result.value), "stdout" => result.stdout,
                           "charts" => charts, "problems" => problems, "events" => events); id = id)
     elseif op == "whos"
         return reply(Dict("value" => whois()); id = id)

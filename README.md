@@ -12,8 +12,8 @@ line, as described by `array.bytes`.
 | op | request | reply |
 | --- | --- | --- |
 | `hello` | — | `julia`, `image`, `protocol`, `packages` |
-| `eval` | `id`, `code` | `value` (type/shape/preview), `stdout` |
-| `whos` | — | numeric bindings with `name`, `type`, `shape`, `value`/`preview` |
+| `eval` | `id`, `code` | `value` (type/shape/preview), `text` (the REPL's display), `stdout`, `charts`, `problems`, `events` |
+| `whos` | — | bindings with `name`, `type`, `shape`, `value`/`preview`; functions as `Function` |
 | `get` | `id`, `name` | JSON line with `array` + raw Float64 bytes |
 | `set` | `id`, `name`, `rows`, `cols`, `bytes` + frame | `value` |
 | `snapshot` | `id`, `line` | `whos` of the last source's prefix |

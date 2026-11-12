@@ -39,21 +39,24 @@ assert hello["ok"] and hello["protocol"] == 0 and hello["julia"].startswith("1.1
 print("hello", hello["julia"], hello["image"])
 
 send({"op": "eval", "id": "e", "code": "f(x, y) = x + y; t = f(2, 3)"})
-assert line()["value"]["value"] == 5
+evaluated = line()
+assert evaluated["value"]["value"] == 5 and evaluated["text"] == "5"
+send({"op": "eval", "id": "m", "code": "[1 2; 3 4]"})
+assert line()["text"] == "2×2 Matrix{Int64}:\n 1  2\n 3  4"
 send({"op": "whos"})
-assert [v["name"] for v in line()["value"]] == ["t"]
-print("eval/whos t = 5")
+assert [(v["name"], v["type"]) for v in line()["value"]] == [("f", "Function"), ("t", "Int64")]
+print("eval/whos f, t = 5")
 
 # clear() applies between statements: what the script defines after it survives.
 send({"op": "eval", "id": "c", "code": "x = 1:5\ny = 2:6\nclear()\nclc()\nz = 10\na = 5\nf(x, y) = x + y\nt = f(2, 3)"})
 cleared = line()
 assert cleared["ok"] and [e["type"] for e in cleared["events"]] == ["clear", "clc"], cleared
 send({"op": "whos"})
-assert [v["name"] for v in line()["value"]] == ["a", "t", "z"]
+assert [v["name"] for v in line()["value"]] == ["a", "f", "t", "z"]
 send({"op": "eval", "id": "d", "code": "w = 1; clear(:a); f(1, 1)"})
 assert line()["value"]["value"] == 2
 send({"op": "whos"})
-assert [v["name"] for v in line()["value"]] == ["t", "w", "z"]
+assert [v["name"] for v in line()["value"]] == ["f", "t", "w", "z"]
 send({"op": "eval", "id": "p", "code": "q = 1\nbad("})
 assert not line()["ok"]
 send({"op": "whos"})
