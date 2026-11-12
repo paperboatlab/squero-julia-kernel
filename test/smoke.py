@@ -42,7 +42,9 @@ send({"op": "eval", "id": "e", "code": "f(x, y) = x + y; t = f(2, 3)"})
 evaluated = line()
 assert evaluated["value"]["value"] == 5 and evaluated["text"] == "5"
 send({"op": "eval", "id": "m", "code": "[1 2; 3 4]"})
-assert line()["text"] == "2×2 Matrix{Int64}:\n 1  2\n 3  4"
+matrix = line()
+assert matrix["text"] == "2×2 Matrix{Int64}:\n 1  2\n 3  4"
+assert matrix["value"]["preview"] == [1, 2, 3, 4], "the preview reads row by row"
 send({"op": "whos"})
 assert [(v["name"], v["type"]) for v in line()["value"]] == [("f", "Function"), ("t", "Int64")]
 print("eval/whos f, t = 5")
