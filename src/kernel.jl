@@ -67,7 +67,9 @@ function describe(value)
         kind = ndims(value) == 1 ? "Vector{$scalar}" : "Matrix{$scalar}"
         preview = Float64[]
         if element <: Number
-            for x in Iterators.take(Iterators.flatten(value isa AbstractVector ? (value,) : value), 5)
+            # Row by row, as the matrix reads (a column-major walk would show A[2,1] second).
+            walk = ndims(value) == 2 ? (value[i, j] for i in axes(value, 1) for j in axes(value, 2)) : value
+            for x in Iterators.take(walk, 5)
                 push!(preview, Float64(x))
             end
         end
