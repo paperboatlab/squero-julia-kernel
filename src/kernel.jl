@@ -125,6 +125,50 @@ function fail(message; id = nothing)
     reply(Dict("ok" => false, "error" => string(message)); id = id)
 end
 
+"""
+Apply the session events the statement just recorded: `clear()` swaps in a fresh module before
+the next statement, `clear(:x)` carries every other binding over. The events stay queued for the UI.
+"""
+function apply_events(from::Int)
+    HAS_BASE || return
+    for event in SqueroBase.EVENTS[from+1:end]
+        get(event, "type", "") == "clear" || continue
+        dropped = get(event, "names", nothing)
+        old = SESSION.mod
+        SESSION.mod = fresh_module()
+        dropped === nothing && continue
+        # ponytail: a carried-over function keeps its old module's globals; fine for a workspace.
+        for name in names(old; all = true, imported = false)
+            text = string(name)
+            (startswith(text, "#") || text in dropped || !isdefined(old, name)) && continue
+            value = getfield(old, name)
+            value isa Module && continue
+            Core.eval(SESSION.mod, Expr(:(=), name, QuoteNode(value)))
+        end
+    end
+end
+
+"""Run each top-level statement in turn, as a script would, applying `clear` between them."""
+function run_statements(code::AbstractString)
+    value = nothing
+    line = nothing
+    statements = Meta.parseall(code).args
+    # A syntax error anywhere stops the script before its first statement runs.
+    for ex in statements
+        ex isa Expr && ex.head in (:error, :incomplete) && Core.eval(SESSION.mod, ex)
+    end
+    for ex in statements
+        if ex isa LineNumberNode
+            line = ex
+            continue
+        end
+        from = HAS_BASE ? length(SqueroBase.EVENTS) : 0
+        value = Core.eval(SESSION.mod, line === nothing ? ex : Expr(:toplevel, line, ex))
+        apply_events(from)
+    end
+    value
+end
+
 """Run code in the session with stdout/stderr captured, so the protocol stream stays clean."""
 function evaluate(code::AbstractString)
     isempty(strip(code)) && return (value = nothing, error = nothing, stdout = "")
@@ -135,7 +179,7 @@ function evaluate(code::AbstractString)
     try
         value = redirect_stdout(stream) do
             redirect_stderr(stream) do
-                Core.eval(SESSION.mod, Meta.parseall(code))
+                run_statements(code)
             end
         end
     catch err
@@ -216,6 +260,7 @@ function handle(request::AbstractDict)
         SESSION.mod = fresh_module()
         result = evaluate(prefix)
         variables = result.error === nothing ? whois() : Any[]
+        take_specs()
         SESSION.mod = saved
         return reply(Dict(
             "value" => variables,

@@ -20,7 +20,11 @@ line, as described by `array.bytes`.
 | `chart` | `id` | reserved for the shared plot registry |
 | `reset` / `shutdown` | — | `value` |
 
-`eval` runs in a fresh module per session, so `reset` is a real clean slate. Stdout/stderr from
+`eval` runs in a fresh module per session, so `reset` is a real clean slate. It runs the
+code's top-level statements one at a time, like a script (a syntax error anywhere runs none of
+them). SqueroBase's `clear()` swaps in a fresh module before the next statement, so a script
+keeps what it defines after `clear()`; `clear(:x)` drops just `x`. The events still come back
+in `events` for the UI. Stdout/stderr from
 user code are captured and returned in `stdout`, never mixed into the protocol stream.
 
 ## Build and run
