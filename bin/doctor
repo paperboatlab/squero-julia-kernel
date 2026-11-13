@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # squero-mx doctor: what starts the kernel, and whether it answers.
 set -eu
-IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r1}"
+IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r2}"
 NATIVE="$(command -v julia || true)"
 PODMAN="$(command -v podman || true)"
 DOCKER="$(command -v docker || true)"

@@ -1,11 +1,17 @@
 #!/usr/bin/env sh
-# Build the pinned kernel image with whatever container runtime is present.
+# Build the pinned kernel image with whatever container runtime is present. The context is the
+# folder that holds squero-julia-kernel, SqueroBase.jl and SqueroPlot.jl side by side.
 set -eu
-IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r1}"
+IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r2}"
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+CONTEXT="$(dirname "$HERE")"
+for dep in SqueroBase.jl SqueroPlot.jl; do
+  [ -d "$CONTEXT/$dep" ] || { echo "build-image: $CONTEXT/$dep is missing (check it out beside the kernel)" >&2; exit 2; }
+done
 if command -v podman >/dev/null 2>&1; then
-  exec podman build -t "$IMAGE" .
+  exec podman build -f "$HERE/Dockerfile" -t "$IMAGE" "$CONTEXT"
 elif command -v docker >/dev/null 2>&1; then
-  exec docker build -t "$IMAGE" .
+  exec docker build -f "$HERE/Dockerfile" -t "$IMAGE" "$CONTEXT"
 else
   echo "build-image: install podman or docker" >&2
   exit 2
