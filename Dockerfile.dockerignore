@@ -1,0 +1,12 @@
+# The build context is the folder above the kernel (bin/build-image); send only the three checkouts.
+*
+!SqueroBase.jl
+!SqueroPlot.jl
+!squero-julia-kernel
+**/.git
+**/Manifest.toml
+!squero-julia-kernel/Manifest.toml
+SqueroPlot.jl/docs
+SqueroPlot.jl/examples
+squero-julia-kernel/test
+squero-julia-kernel/bin
