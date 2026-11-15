@@ -24,7 +24,9 @@ Figure images never travel as base64 inside JSON.
 | `eval` | `id`, `code` | `value`, `text` (the REPL's display), `stdout`, `figures`, `problems`, `runs`, `events` |
 | `whos` | — | bindings with `name`, `type`, `shape`, `value`/`preview`; functions as `Function`; figures as `Figure` |
 | `get` | `id`, `name` | JSON line with `array` + raw Float64 bytes |
-| `set` | `id`, `name`, `rows`, `cols`, `bytes` + frame | `value` |
+| `set` | `id`, `name`, `rows`, `cols`, `bytes`, `vector?` + frame | `value`; `vector: true` makes a Vector, `false` keeps a 1 × n Matrix |
+| `doc` | `id`, `name` (a name, dotted path or operator; nothing is run) | `value`: the docstring as HTML, or `null` |
+| `doc.names` | `id` | `value`: `{name, module}` for every exported name of the session's modules and its bindings |
 | `snapshot` | `id`, `line` | `whos` of the last source's prefix |
 | `figure.get` | `id`, `figure`, `version?`, `format` (`svg`/`png`) | JSON line with `artifact` + the bytes: the preview the stage shows |
 | `figure.export` | `id`, `figure`, `version?`, `format` (`png`/`svg`/`pdf`/`eps`/`html`) | `artifact` + bytes of a stored version |
@@ -39,6 +41,9 @@ figures among the session's bindings, the run's value and SqueroPlot's current f
 those a later `clear()` in the same run would hide. It stores PNG, SVG, PDF and EPS per version
 (the last 256 versions), so a history entry exports after the variables, the session or the live
 figure have changed. `clear`, `clc` and `reset` never drop stored artifacts.
+
+A SIGINT to the kernel (the launcher's Cancel) stops the running `eval`, which replies
+`ok: false` with `InterruptException`; the session and its variables stay.
 
 `eval` runs in a fresh module per session, so `reset` is a real clean slate. It runs the
 code's top-level statements one at a time, like a script (a syntax error anywhere runs none of

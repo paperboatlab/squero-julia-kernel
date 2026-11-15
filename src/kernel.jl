@@ -33,6 +33,10 @@ end
 
 const SESSION = Session(fresh_module(), "")
 
+# Cancel: the launcher sends SIGINT, which stops the running statement with an InterruptException
+# (the eval replies with it) instead of ending the kernel.
+Base.exit_on_sigint(false)
+
 # ---------------------------------------------------------------------------------------------
 # Figures: the kernel snapshots the figures a script changed and keeps the artifacts per version,
 # so the app's history can export them after the session has moved on.
@@ -211,6 +215,41 @@ end
 """The value as the REPL prints it (`text/plain`, limited to a screen), or "" for nothing."""
 shown(value) = value === nothing ? "" :
     sprint(io -> show(IOContext(io, :limit => true, :displaysize => (24, 80)), MIME"text/plain"(), value))
+
+# ---------------------------------------------------------------------------------------------
+# Help: docstrings for the app's Help window
+
+# Markdown is in the sysimage but not a project dependency; loading it by id renders docstrings.
+const Markdown = Base.require(Base.PkgId(Base.UUID("d6f4376e-aef5-505a-96c1-9c027394607a"), "Markdown"))
+const DOC_MODULES = (Base, LinearAlgebra, SparseArrays, Statistics, SqueroBase, SqueroPlot)
+const NAME = r"^[\p{L}_][\p{L}\p{N}_!]*(\.[\p{L}_][\p{L}\p{N}_!]*)*$"
+
+"""A name's docs as HTML (Julia's Markdown renders them). Only names and operators: nothing runs."""
+function doc_html(name::AbstractString)
+    ex = occursin(NAME, name) ? Meta.parse(name) : Base.isoperator(Symbol(name)) ? Symbol(name) : nothing
+    ex === nothing && error("not a name: $(name)")
+    found = Core.eval(SESSION.mod, :(Base.Docs.@doc $ex))
+    found === nothing && return nothing
+    # Outside a REPL, @doc gives the raw docstring; Markdown parses it as the REPL would.
+    text = found isa Base.Docs.DocStr ? sprint(io -> foreach(t -> print(io, t), found.text)) : nothing
+    md = text === nothing ? found : Base.invokelatest(Markdown.parse, text)
+    sprint(io -> Base.invokelatest(show, io, MIME"text/html"(), md))
+end
+
+"""What the Help window can search: the exported names of the session's modules and its own bindings."""
+function doc_names()
+    out = Dict{String, String}()
+    for m in DOC_MODULES, n in names(m)
+        text = string(n)
+        (startswith(text, "#") || text == string(nameof(m))) && continue
+        get!(out, text, string(nameof(m)))
+    end
+    for n in names(SESSION.mod; all = true, imported = false)
+        text = string(n)
+        startswith(text, "#") || text in SESSION_MODULES || (out[text] = "workspace")
+    end
+    [Dict("name" => k, "module" => v) for (k, v) in sort!(collect(out); by = first)]
+end
 
 # ---------------------------------------------------------------------------------------------
 # Protocol
@@ -532,8 +571,10 @@ function handle(request::AbstractDict)
         bytes = Vector{UInt8}(undef, count)
         readbytes!(stdin, bytes, count)
         values = reinterpret(Float64, bytes)
-        value = rows == 1 && cols == 1 ? values[1] :
-                rows == 1 ? collect(values) : reshape(collect(values), rows, cols)
+        # `vector`: a Vector whatever the shape; otherwise 1 × n is a vector too, unless `matrix`.
+        vector = get(request, "vector", nothing)
+        value = rows == 1 && cols == 1 && vector === nothing ? values[1] :
+                vector === true || (vector === nothing && rows == 1) ? collect(values) : reshape(collect(values), rows, cols)
         Core.eval(SESSION.mod, :($(name) = $value))
         return reply(Dict("value" => describe(value)); id = id)
     elseif op == "snapshot"
@@ -579,6 +620,10 @@ function handle(request::AbstractDict)
         LAST_VERSION[snap.id] = snap.version
         store!(snap)
         return reply(Dict("figure" => figure_meta(snap)); id = id)
+    elseif op == "doc"
+        return reply(Dict("value" => doc_html(string(get(request, "name", "")))); id = id)
+    elseif op == "doc.names"
+        return reply(Dict("value" => doc_names()); id = id)
     elseif op == "reset"
         SESSION.mod = fresh_module()
         SESSION.source = ""
@@ -595,8 +640,14 @@ function handle(request::AbstractDict)
 end
 
 function main()
-    while !eof(stdin)
-        line = readline(stdin)
+    while true
+        line = try
+            eof(stdin) && break
+            readline(stdin)
+        catch err
+            err isa InterruptException && continue  # a Cancel that came after the run ended
+            rethrow()
+        end
         isempty(strip(line)) && continue
         request = try
             JSON3.read(line, Dict{String, Any})
