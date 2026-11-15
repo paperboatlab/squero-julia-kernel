@@ -3,7 +3,7 @@
 # The kernel project depends on SqueroBase and SqueroPlot by path (`../SqueroBase.jl`,
 # `../SqueroPlot.jl`), so build from the folder that holds the three checkouts:
 #
-#   podman build -f squero-julia-kernel/Dockerfile -t squero-julia-kernel:1.11.6-r2 .
+#   podman build -f squero-julia-kernel/Dockerfile -t squero-julia-kernel:1.11.6-r3 .
 #
 # (bin/build-image does this.) SqueroPlot draws with Cairo and its own bundled fonts; the image
 # needs no system fonts, X server or GPU.
@@ -19,5 +19,5 @@ ENV JULIA_DEPOT_PATH=/home/kernel/.julia
 RUN julia --startup-file=no --project=/opt/squero/app -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
 COPY --chown=1000:1000 squero-julia-kernel/src ./app/src
-ENV SQUERO_KERNEL_IMAGE=squero-julia-kernel:1.11.6-r2
+ENV SQUERO_KERNEL_IMAGE=squero-julia-kernel:1.11.6-r3
 ENTRYPOINT ["julia", "--startup-file=no", "--project=/opt/squero/app", "/opt/squero/app/src/kernel.jl"]
