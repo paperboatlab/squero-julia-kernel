@@ -54,7 +54,8 @@ and returned in `stdout`, never mixed into the protocol stream.
 ## Build and run
 
 ```sh
-bin/build-image          # podman/docker build with the parent folder as context
+bin/build-image          # pull ghcr.io/paperboatlab/squero-julia-kernel:1.11.6-r3 (public, amd64 + arm64)
+SQUERO_KERNEL_BUILD=local bin/build-image   # or build it here, with the parent folder as context
 printf '%s\n' '{"op":"hello"}' | podman run --rm -i --network=none squero-julia-kernel:1.11.6-r3
 bin/doctor
 ```
