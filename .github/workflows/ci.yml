@@ -88,9 +88,9 @@ jobs:
           file: squero-julia-kernel/Dockerfile
           push: false
           load: true
-          tags: squero-julia-kernel:1.11.6-r3
+          tags: squero-julia-kernel:1.11.6-r4
       - name: Verify container hello
         run: |
-          out="$(printf '%s\n' '{"op":"hello"}' | docker run --rm -i --network=none squero-julia-kernel:1.11.6-r3)"
+          out="$(printf '%s\n' '{"op":"hello"}' | docker run --rm -i --network=none squero-julia-kernel:1.11.6-r4)"
           echo "$out"
           echo "$out" | grep -q '"ok":true'

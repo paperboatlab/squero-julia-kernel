@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: paperboatlab/squero-julia-kernel
-  KERNEL_TAG: 1.11.6-r3
+  KERNEL_TAG: 1.11.6-r4
 
 jobs:
   publish:
