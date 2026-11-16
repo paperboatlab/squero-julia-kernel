@@ -6,7 +6,7 @@
 # project (SQUERO_JULIA=native). `paperboat pkg install` runs this.
 # SQUERO_KERNEL_RUNTIME=podman|docker|native picks one.
 set -eu
-TAG=1.11.6-r3
+TAG=1.11.6-r4
 PUBLISHED="ghcr.io/paperboatlab/squero-julia-kernel:$TAG"
 IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:$TAG}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
