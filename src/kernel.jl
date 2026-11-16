@@ -24,6 +24,7 @@ using .SqueroDebugger
 const PROTOCOL = 0
 const PACKAGES = ["JSON3", "LinearAlgebra", "SparseArrays", "Statistics", "SqueroBase", "SqueroPlot"]
 const IMAGE = get(ENV, "SQUERO_KERNEL_IMAGE", "squero-julia-kernel:$(VERSION)-r3")
+const IMAGE_DIGEST = get(ENV, "SQUERO_KERNEL_DIGEST", "")
 const VERSIONS = Dict("SqueroBase" => string(pkgversion(SqueroBase)), "SqueroPlot" => string(pkgversion(SqueroPlot)))
 const SESSION_MODULES = Set(["Base", "Core", "Main", "eval", "include", "LinearAlgebra", "SparseArrays", "Statistics", "SqueroBase", "SqueroPlot"])
 
@@ -826,14 +827,16 @@ function handle(request::AbstractDict)
     id = get(request, "id", nothing)
 
     if op == "hello"
-        return reply(Dict(
+        info = Dict{String, Any}(
             "op" => "hello",
             "julia" => string(VERSION),
             "image" => IMAGE,
             "protocol" => PROTOCOL,
             "packages" => PACKAGES,
             "versions" => VERSIONS,
-        ); id = id)
+        )
+        !isempty(IMAGE_DIGEST) && (info["image_digest"] = IMAGE_DIGEST)
+        return reply(info; id = id)
     elseif op == "eval"
         code = string(get(request, "code", ""))
         file = string(get(request, "file", ""))

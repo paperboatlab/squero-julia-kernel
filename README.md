@@ -77,3 +77,7 @@ SQUERO_KERNEL=native python3 test/examples.py ../squero-studio-mx/examples  # ev
 
 JSON3, the stdlibs LinearAlgebra, SparseArrays and Statistics, SqueroBase and SqueroPlot
 (which brings Cairo, Colors, FreeType2_jll, PrecompileTools and SHA).
+
+## License
+
+Apache License 2.0 (see [LICENSE](LICENSE)).
