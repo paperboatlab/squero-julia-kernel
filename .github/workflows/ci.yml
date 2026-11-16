@@ -1,0 +1,96 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Kernel tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: squero-julia-kernel
+      - uses: actions/checkout@v4
+        with:
+          repository: paperboatlab/squero-mx-base
+          path: SqueroBase.jl
+      - uses: actions/checkout@v4
+        with:
+          repository: paperboatlab/SqueroPlot.jl
+          path: SqueroPlot.jl
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.11.6"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instantiate and precompile
+        run: julia --startup-file=no --project=squero-julia-kernel -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Exercise hello and eval over stdio
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, subprocess, sys
+          proc = subprocess.Popen(
+            ["julia", "--startup-file=no", "--project=squero-julia-kernel", "squero-julia-kernel/src/kernel.jl"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+          )
+          proc.stdin.write('{"op":"hello"}\n')
+          proc.stdin.write('{"op":"eval","id":"1","code":"A = [1 2; 3 4]; A * A"}\n')
+          proc.stdin.write('{"op":"shutdown"}\n')
+          proc.stdin.flush()
+          hello = json.loads(proc.stdout.readline())
+          ev = json.loads(proc.stdout.readline())
+          proc.wait(timeout=30)
+          assert hello.get("ok") and hello.get("julia", "").startswith("1.11"), hello
+          assert ev.get("ok") and "22" in str(ev.get("text", "")), ev
+          print("hello + eval ok:", hello["julia"])
+          PY
+      - name: Run protocol, debugger, and example suites
+        shell: bash
+        env:
+          SQUERO_KERNEL: native
+        run: |
+          python3 squero-julia-kernel/test/smoke.py
+          python3 squero-julia-kernel/test/debug_test.py
+
+  docker:
+    name: Container build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: squero-julia-kernel
+      - uses: actions/checkout@v4
+        with:
+          repository: paperboatlab/squero-mx-base
+          path: SqueroBase.jl
+      - uses: actions/checkout@v4
+        with:
+          repository: paperboatlab/SqueroPlot.jl
+          path: SqueroPlot.jl
+      - uses: docker/setup-buildx-action@v3
+      - name: Build kernel image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: squero-julia-kernel/Dockerfile
+          push: false
+          load: true
+          tags: squero-julia-kernel:1.11.6-r3
+      - name: Verify container hello
+        run: |
+          out="$(printf '%s\n' '{"op":"hello"}' | docker run --rm -i --network=none squero-julia-kernel:1.11.6-r3)"
+          echo "$out"
+          echo "$out" | grep -q '"ok":true'

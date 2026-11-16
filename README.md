@@ -55,7 +55,7 @@ and returned in `stdout`, never mixed into the protocol stream.
 
 ```sh
 bin/build-image          # podman/docker build with the parent folder as context
-printf '%s\n' '{"op":"hello"}' | podman run --rm -i --network=none squero-julia-kernel:1.11.6-r2
+printf '%s\n' '{"op":"hello"}' | podman run --rm -i --network=none squero-julia-kernel:1.11.6-r3
 bin/doctor
 ```
 
@@ -77,3 +77,7 @@ SQUERO_KERNEL=native python3 test/examples.py ../squero-studio-mx/examples  # ev
 
 JSON3, the stdlibs LinearAlgebra, SparseArrays and Statistics, SqueroBase and SqueroPlot
 (which brings Cairo, Colors, FreeType2_jll, PrecompileTools and SHA).
+
+## License
+
+Apache License 2.0 (see [LICENSE](LICENSE)).

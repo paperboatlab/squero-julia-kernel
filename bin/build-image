@@ -4,7 +4,7 @@
 # Julia 1.11 on PATH, the native project (SQUERO_JULIA=native). `paperboat pkg install` runs this.
 # SQUERO_KERNEL_RUNTIME=podman|docker|native picks one.
 set -eu
-IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r2}"
+IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r3}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 CONTEXT="$(dirname "$HERE")"
 for dep in SqueroBase.jl SqueroPlot.jl; do

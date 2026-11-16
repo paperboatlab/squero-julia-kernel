@@ -13,7 +13,7 @@ import subprocess
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-IMAGE = os.environ.get("SQUERO_KERNEL_IMAGE", "squero-julia-kernel:1.11.6-r2")
+IMAGE = os.environ.get("SQUERO_KERNEL_IMAGE", "squero-julia-kernel:1.11.6-r3")
 NATIVE = os.environ.get("SQUERO_KERNEL") == "native"
 # SqueroBase and SqueroPlot are the kernel project's own dependencies (path deps natively, baked
 # into the image otherwise); nothing is mounted.

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # squero-mx doctor: what starts the kernel, and whether it answers.
 set -eu
-IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r2}"
+IMAGE="${SQUERO_KERNEL_IMAGE:-squero-julia-kernel:1.11.6-r3}"
 NATIVE="$(command -v julia || true)"
 PODMAN="$(command -v podman || true)"
 DOCKER="$(command -v docker || true)"
@@ -20,8 +20,10 @@ echo "  runtime: ${RUNTIME:-none}"
 if [ "$RUNTIME" = "podman" ] || [ "$RUNTIME" = "docker" ]; then
   command -v "$RUNTIME" >/dev/null 2>&1 || { echo "  $RUNTIME: not found"; exit 2; }
   "$RUNTIME" image inspect "$IMAGE" >/dev/null 2>&1 || { echo "  image:   $IMAGE (missing)"; exit 2; }
+  DIGEST="$("$RUNTIME" image inspect "$IMAGE" --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}' 2>/dev/null || true)"
   echo "  image:   $IMAGE"
-  printf '%s\n' '{"op":"hello"}' | "$RUNTIME" run --rm -i --network=none "$IMAGE" | sed 's/^/  hello:   /'
+  [ -n "$DIGEST" ] && echo "  digest:  $DIGEST"
+  printf '%s\n' '{"op":"hello"}' | "$RUNTIME" run --rm -i --network=none -e "SQUERO_KERNEL_IMAGE=$IMAGE" -e "SQUERO_KERNEL_DIGEST=${DIGEST#*@}" "$IMAGE" | sed 's/^/  hello:   /'
 elif [ "$RUNTIME" = "native" ]; then
   [ -n "$NATIVE" ] || { echo "  native julia: not found"; exit 2; }
   echo "  image:   native (no container)"
