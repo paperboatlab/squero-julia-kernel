@@ -81,4 +81,4 @@ JSON3, the stdlibs LinearAlgebra, SparseArrays and Statistics, SqueroBase and Sq
 
 ## License
 
-Apache License 2.0 (see [LICENSE](LICENSE)).
+GNU General Public License version 3 (see [LICENSE](LICENSE)).
