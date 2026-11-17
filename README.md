@@ -1,84 +1,49 @@
 # squero-julia-kernel
 
-The Julia session behind **Squero Studio MX**, packaged as a container. It speaks
-`squero-kernel/0` on stdin/stdout; the MX launcher owns the browser bridge.
+The containerised Julia session behind Squero Studio MX in the
+[Paperboat](https://github.com/paperboatlab/paperboat) ecosystem. It speaks `squero-kernel/0` over
+stdin/stdout and preloads [`SqueroPlot.jl`](../SqueroPlot.jl) and
+[`SqueroBase.jl`](../SqueroBase.jl); solving and simulation stay in Paperboat.
 
-Every session loads two packages:
+**Docs:** [`docs/protocol.md`](docs/protocol.md) and <https://paperboatlab.github.io/apps/squero-studio-mx/>
 
-- **[SqueroPlot.jl](../SqueroPlot.jl)**: figures (`Figure`, `Axis`, `lines!`, `surface!`, …).
-  The kernel snapshots the figures a script changed and stores their artifacts.
-- **[SqueroBase.jl](../SqueroBase.jl)**: `clear`/`clc` session events, `optimize` (a problem for
-  Paperboat's solver) and `simulate` (a `graph.run` for a Paperboat backend).
+## Build
 
-Solving and simulation stay in Paperboat; nothing here integrates or solves.
-
-## Protocol
-
-One JSON object per line. A reply with a binary frame says so in its header, and the raw bytes
-follow the JSON line: `array.bytes` (Float64, column-major) or `artifact.bytes` (a figure file).
-Figure images never travel as base64 inside JSON.
-
-| op | request | reply |
-| --- | --- | --- |
-| `hello` | — | `julia`, `image`, `protocol`, `packages`, `versions` |
-| `eval` | `id`, `code` | `value`, `text` (the REPL's display), `stdout`, `figures`, `problems`, `runs`, `events` |
-| `whos` | — | bindings with `name`, `type`, `shape`, `value`/`preview`; functions as `Function`; figures as `Figure` |
-| `get` | `id`, `name` | JSON line with `array` + raw Float64 bytes |
-| `set` | `id`, `name`, `rows`, `cols`, `bytes`, `vector?` + frame | `value`; `vector: true` makes a Vector, `false` keeps a 1 × n Matrix |
-| `doc` | `id`, `name` (a name, dotted path or operator; nothing is run) | `value`: the docstring as HTML, or `null` |
-| `doc.names` | `id` | `value`: `{name, module}` for every exported name of the session's modules and its bindings |
-| `snapshot` | `id`, `line` | `whos` of the last source's prefix |
-| `figure.get` | `id`, `figure`, `version?`, `format` (`svg`/`png`) | JSON line with `artifact` + the bytes: the preview the stage shows |
-| `figure.export` | `id`, `figure`, `version?`, `format` (`png`/`svg`/`pdf`/`eps`/`html`) | `artifact` + bytes of a stored version |
-| `figure.list` | `id` | metadata of every stored version |
-| `plot.optimum` | `id`, `result` (Paperboat's solver JSON with `grid`), `title` | `figure`: a SqueroPlot surface with the optimum, stored like any figure |
-| `reset` / `shutdown` | — | `value` |
-
-`figures` in an `eval` reply lists the figures whose drawing changed in that run (each is new
-history for the app): `id`, `version` (a digest of the SVG), `title`, `width`, `height`,
-`plots`, `axes`, `formats`, and `lines`, the source lines that drew into it. The kernel finds
-figures among the session's bindings, the run's value and SqueroPlot's current figure, also
-those a later `clear()` in the same run would hide. It stores PNG, SVG, PDF and EPS per version
-(the last 256 versions), so a history entry exports after the variables, the session or the live
-figure have changed. `clear`, `clc` and `reset` never drop stored artifacts.
-
-A SIGINT to the kernel (the launcher's Cancel) stops the running `eval`, which replies
-`ok: false` with `InterruptException`; the session and its variables stay.
-
-`eval` runs in a fresh module per session, so `reset` is a real clean slate. It runs the
-code's top-level statements one at a time, like a script (a syntax error anywhere runs none of
-them). `clear()` swaps in a fresh module before the next statement, so a script keeps what it
-defines after `clear()`; `clear(:x)` drops just `x`. Stdout/stderr from user code are captured
-and returned in `stdout`, never mixed into the protocol stream.
-
-## Build and run
+Pull the prebuilt multi-arch image (`amd64` and `arm64`), or build locally with `SqueroBase.jl` and
+`SqueroPlot.jl` checked out beside this folder:
 
 ```sh
-bin/build-image          # pull ghcr.io/paperboatlab/squero-julia-kernel:1.11.6-r4 (public, amd64 + arm64)
-SQUERO_KERNEL_BUILD=local bin/build-image   # or build it here, with the parent folder as context
+bin/build-image
+SQUERO_KERNEL_BUILD=local bin/build-image
+```
+
+For a native session without a container (requires Julia 1.11+):
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+## Run
+
+```sh
 printf '%s\n' '{"op":"hello"}' | podman run --rm -i --network=none squero-julia-kernel:1.11.6-r4
 bin/doctor
 ```
 
-The image needs `SqueroBase.jl` and `SqueroPlot.jl` checked out beside this folder (the
-project's path dependencies). `--network=none` is the supported run mode; the kernel never needs
-a network. The image runs as uid 1000, so `--userns=keep-id` on podman and `--user` on docker
-work with a project mount.
-
-Natively, `julia --project=. -e 'using Pkg; Pkg.instantiate()'` resolves the same sibling paths.
-
-## Test
+## Check
 
 ```sh
-SQUERO_KERNEL=native python3 test/smoke.py                                  # the protocol
-SQUERO_KERNEL=native python3 test/examples.py ../squero-studio-mx/examples  # every MX example
+SQUERO_KERNEL=native python3 test/smoke.py
+SQUERO_KERNEL=native python3 test/examples.py ../squero-studio-mx/examples
 ```
 
-## Packages
+## CI
 
-JSON3, the stdlibs LinearAlgebra, SparseArrays and Statistics, SqueroBase and SqueroPlot
-(which brings Cairo, Colors, FreeType2_jll, PrecompileTools and SHA).
+| Check | What it runs | Status |
+| --- | --- | --- |
+| CI | protocol smoke test and MX example runs | [![ci](https://github.com/paperboatlab/squero-julia-kernel/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/paperboatlab/squero-julia-kernel/actions/workflows/ci.yml?query=branch%3Adev) |
+| Image | multi-arch container build and publish (from `main` and tags) | [![publish-image](https://github.com/paperboatlab/squero-julia-kernel/actions/workflows/publish-image.yml/badge.svg?branch=main)](https://github.com/paperboatlab/squero-julia-kernel/actions/workflows/publish-image.yml?query=branch%3Amain) |
 
-## License
+## Licence
 
 GNU General Public License version 3 (see [LICENSE](LICENSE)).

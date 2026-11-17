@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 concurrency:
@@ -24,10 +24,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: paperboatlab/squero-mx-base
+          ref: dev
           path: SqueroBase.jl
       - uses: actions/checkout@v4
         with:
           repository: paperboatlab/SqueroPlot.jl
+          ref: dev
           path: SqueroPlot.jl
       - uses: julia-actions/setup-julia@v2
         with:
@@ -75,10 +77,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: paperboatlab/squero-mx-base
+          ref: dev
           path: SqueroBase.jl
       - uses: actions/checkout@v4
         with:
           repository: paperboatlab/SqueroPlot.jl
+          ref: dev
           path: SqueroPlot.jl
       - uses: docker/setup-buildx-action@v3
       - name: Build kernel image

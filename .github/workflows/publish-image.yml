@@ -27,10 +27,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: paperboatlab/squero-mx-base
+          ref: main
           path: SqueroBase.jl
       - uses: actions/checkout@v4
         with:
           repository: paperboatlab/SqueroPlot.jl
+          ref: main
           path: SqueroPlot.jl
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
