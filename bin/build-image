@@ -3,7 +3,7 @@
 # your machine; Squero Studio MX then runs it by its pinned digest), or, with SQUERO_KERNEL_BUILD=local
 # or when the pull fails, build it here (the context is the folder that holds squero-julia-kernel,
 # SqueroBase.jl and SqueroPlot.jl side by side). Without either, with Julia 1.11 on PATH: the native
-# project (SQUERO_JULIA=native). `paperboat pkg install` runs this.
+# project (SQUERO_JULIA=native). `paperboat squero install` runs this.
 # SQUERO_KERNEL_RUNTIME=podman|docker|native picks one.
 set -eu
 TAG=1.11.6-r4
